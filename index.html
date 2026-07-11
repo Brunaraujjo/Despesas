@@ -126,6 +126,45 @@
   .loading{padding:40px; text-align:center; color:var(--muted);}
   .toast{position:fixed; top:14px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:30px; font-size:13px; z-index:60; opacity:0; transition:opacity .25s;}
   .toast.show{opacity:1;}
+
+  /* PLANEJAMENTO (ciclo financeiro) */
+  .pl-header{margin-bottom:6px;}
+  .pl-header h2{font-size:19px;}
+  .pl-header .sub{font-size:12.5px; color:var(--muted); margin-top:4px;}
+  .pl-section{background:var(--card); border-radius:var(--radius); box-shadow:0 1px 3px rgba(0,0,0,.05); padding:16px 16px 12px; margin-bottom:16px;}
+  .pl-section h3{font-size:14.5px; display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .pl-section h3 .tag{font-family:'Inter',sans-serif; font-size:10px; background:var(--primary-dark); color:#fff; padding:2px 6px; border-radius:4px; font-weight:700;}
+  .pl-row{display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .pl-row:last-child{border-bottom:none;}
+  .pl-row .pl-label{flex:1; min-width:0;}
+  .pl-row input[type="text"]{border:none; background:transparent; font-family:'Inter',sans-serif; font-size:13.5px; color:var(--ink); width:100%; padding:2px 0;}
+  .pl-row input[type="text"]:focus{outline:1px solid var(--primary); outline-offset:2px; border-radius:3px;}
+  .pl-row input[type="number"]{width:96px; text-align:right; border:1.5px solid var(--line); border-radius:8px; padding:6px 8px; font-size:13px; background:#FCFCFB;}
+  .pl-row input[type="number"]:focus{outline:none; border-color:var(--primary);}
+  .pl-del{background:none; border:none; color:var(--muted); font-size:16px; padding:2px 4px; opacity:.6;}
+  .pl-del:active{opacity:1; color:var(--coral);}
+  .pl-add-row{margin-top:8px; width:100%; background:none; border:1.5px dashed var(--line); border-radius:9px; color:var(--primary); font-size:12.5px; padding:8px 10px;}
+  .pl-subtotal{display:flex; justify-content:space-between; margin-top:10px; padding-top:8px; border-top:1px dashed var(--line); font-weight:600; font-size:13.5px;}
+  .pl-debt-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line);}
+  .pl-debt-row:last-child{border-bottom:none;}
+  .pl-debt-row input[type="checkbox"]{width:17px; height:17px; accent-color:var(--primary-dark);}
+  .pl-debt-name{flex:1; min-width:0; font-size:13.5px;}
+  .pl-debt-status{font-family:'Inter',sans-serif; font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:20px; margin-top:3px; display:inline-block;}
+  .pl-status-negativada{background:var(--coral-bg); color:var(--coral);}
+  .pl-status-atrasada{background:var(--amber-bg); color:var(--amber);}
+  .pl-status-negociar{background:#EAEDE9; color:var(--muted);}
+  .pl-debt-row input[type="number"]{width:96px; text-align:right; border:1.5px solid var(--line); border-radius:8px; padding:6px 8px; font-size:13px; background:#FCFCFB;}
+  .pl-summary{background:var(--primary-dark); color:#F3F5F2;}
+  .pl-summary h3{color:#F3F5F2;}
+  .pl-summary h3 .tag{background:var(--amber); color:var(--primary-dark);}
+  .pl-summary .pl-row{border-bottom:1px solid rgba(243,245,242,.15);}
+  .pl-final-balance{margin-top:10px; padding-top:12px; border-top:1px solid rgba(243,245,242,.3); display:flex; justify-content:space-between; align-items:baseline;}
+  .pl-final-balance .lbl{font-family:'Fraunces',serif; font-size:15px;}
+  .pl-final-balance .val{font-size:24px; font-weight:700;}
+  .pl-final-balance .val.positive{color:#9FD6B8;}
+  .pl-final-balance .val.negative{color:#F0A08A;}
+  .pl-note{font-size:11.5px; color:rgba(243,245,242,.65); margin-top:8px; line-height:1.5;}
+  .pl-footer-note{text-align:center; font-size:11.5px; color:var(--muted); margin-top:18px; line-height:1.6;}
 </style>
 <meta name="theme-color" content="#1F4038">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -170,6 +209,7 @@
   <button class="tab" data-tab="receitas"><span class="ic">📥</span>Receitas</button>
   <button class="tab" data-tab="trabalho"><span class="ic">💻</span>Trabalho</button>
   <button class="tab" data-tab="dividas"><span class="ic">📌</span>Dívidas</button>
+  <button class="tab" data-tab="planejamento"><span class="ic">🗓️</span>Planejamento</button>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -196,11 +236,46 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 db.enablePersistence().catch(()=>{ /* várias abas abertas: ok, segue sem cache offline */ });
 
+// ---- Sincronização em nuvem dos dados de Planejamento (mesma lógica do app Financeiro) ----
+const PL_APP_ID = "cicloFinanceiro";
+const PL_KEY_PREFIXES = ["painel-bruna-financeiro-ago2026"];
+function plKeyMatches(k){ return PL_KEY_PREFIXES.some(p => k === p || k.indexOf(p) === 0); }
+function plCollectLocalSnapshot(){
+  const snap = {};
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(plKeyMatches(k)) snap[k] = localStorage.getItem(k);
+  }
+  return snap;
+}
+let plPushTimer = null;
+function plSchedulePush(){ clearTimeout(plPushTimer); plPushTimer = setTimeout(plPushNow, 900); }
+async function plPushNow(){
+  if(!currentUser) return;
+  try{
+    await db.collection('users').doc(currentUser.uid).collection('apps').doc(PL_APP_ID).set(plCollectLocalSnapshot(), {merge:true});
+  }catch(e){ console.warn('sync push failed', e); }
+}
+const plOrigSetItem = Storage.prototype.setItem.bind(localStorage);
+const plOrigRemoveItem = Storage.prototype.removeItem.bind(localStorage);
+localStorage.setItem = function(k,v){ plOrigSetItem(k,v); if(plKeyMatches(k)) plSchedulePush(); };
+localStorage.removeItem = function(k){ plOrigRemoveItem(k); if(plKeyMatches(k)) plSchedulePush(); };
+async function plHydrateFromCloud(){
+  if(!currentUser) return;
+  try{
+    const doc = await db.collection('users').doc(currentUser.uid).collection('apps').doc(PL_APP_ID).get();
+    if(doc.exists){
+      const cloudData = doc.data();
+      Object.keys(cloudData).forEach(k=>{ plOrigSetItem(k, cloudData[k]); });
+    }
+  }catch(e){ console.warn('sync hydrate failed', e); }
+}
+
 // ---- PWA: manifest com ícone (para 'Adicionar à tela inicial') ----
 (function(){
   const manifest = {
     name: "Livro-Caixa",
-    short_name: "Despesas",
+    short_name: "Livro-Caixa",
     start_url: ".",
     display: "standalone",
     background_color: "#F3F5F2",
@@ -319,6 +394,19 @@ function remoteTotalBRL(data){
 }
 
 async function render(){
+  const ledgerEl = document.querySelector('.ledger');
+  const monthNavEl = document.querySelector('.month-nav');
+  const fabEl = document.getElementById('fabAdd');
+  if(activeTab === 'planejamento'){
+    if(ledgerEl) ledgerEl.style.display = 'none';
+    if(monthNavEl) monthNavEl.style.display = 'none';
+    if(fabEl) fabEl.style.display = 'none';
+    renderPlanejamento();
+    return;
+  }
+  if(ledgerEl) ledgerEl.style.display = '';
+  if(monthNavEl) monthNavEl.style.display = '';
+  if(fabEl) fabEl.style.display = '';
   document.getElementById('monthLabel').textContent = monthLabelOf(currentKey);
   document.getElementById('todayLink').textContent = currentKey===todayKey ? '' : 'toque para voltar a hoje';
   const data = await loadMonth(currentKey);
@@ -603,6 +691,244 @@ document.querySelectorAll('.tab').forEach(t=>{
   };
 });
 
+// ---- PLANEJAMENTO (ciclo financeiro) ----
+const PL_STORAGE_KEY = 'painel-bruna-financeiro-ago2026';
+
+function plFmt(v){
+  return 'R$ ' + (v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+function plDefaultData() {
+  return {
+    recebimento: 4400,
+    reserva: 400,
+    fixos: [
+      {nome: 'Internet móvel', valor: 53},
+      {nome: 'Luz', valor: 200},
+      {nome: 'Convênio Luke', valor: 50},
+      {nome: 'Seguro carro', valor: 300},
+      {nome: 'Água', valor: 170},
+      {nome: 'Cartão Jennifer (parcela ago)', valor: 949.05},
+      {nome: 'Empréstimo Leto (parcela 15/08)', valor: 850}
+    ],
+    variaveis: [
+      {nome: 'Mercado (ajustado, resto no VA)', valor: 300},
+      {nome: 'Feira', valor: 140},
+      {nome: 'Lazer (cortado em agosto)', valor: 0},
+      {nome: 'Gasolina', valor: 300},
+      {nome: 'Padaria', valor: 100},
+      {nome: 'Farmácia', valor: 100},
+      {nome: 'Dinheiro de bolso', valor: 200}
+    ],
+    dividas: [
+      {nome: 'Safra (Cheque Especial)', valor: 69.40, status: 'atrasada', marcado: true},
+      {nome: 'UNIMED', valor: 386.10, status: 'negativada', marcado: false},
+      {nome: 'MercadoPago', valor: 106.82, status: 'atrasada', marcado: false},
+      {nome: 'Paga Leve (1)', valor: 144.75, status: 'atrasada', marcado: false},
+      {nome: 'Paga Leve (2)', valor: 64.84, status: 'atrasada', marcado: false},
+      {nome: 'Crédito Fácil', valor: 390.00, status: 'atrasada', marcado: false},
+      {nome: 'Safra (Pessoa Física)', valor: 542.57, status: 'atrasada', marcado: false},
+      {nome: 'PagSeguro', valor: 636.70, status: 'atrasada', marcado: false},
+      {nome: 'Sabesp', valor: 5418.09, status: 'atrasada', marcado: false},
+      {nome: 'Enel (sem valor definido — negociar)', valor: 0, status: 'negociar', marcado: false}
+    ]
+  };
+}
+
+let plData = null;
+
+function plLoadData(){
+  try{
+    const raw = localStorage.getItem(PL_STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ console.warn('Armazenamento local indisponível:', e); }
+  return plDefaultData();
+}
+
+function plSaveData(){
+  try{ localStorage.setItem(PL_STORAGE_KEY, JSON.stringify(plData)); }
+  catch(e){ console.warn('Não foi possível salvar o planejamento:', e); }
+}
+
+function plStatusLabel(status){
+  if(status === 'negativada') return '<span class="pl-debt-status pl-status-negativada">negativada</span>';
+  if(status === 'negociar') return '<span class="pl-debt-status pl-status-negociar">negociar</span>';
+  return '<span class="pl-debt-status pl-status-atrasada">atrasada</span>';
+}
+
+function plRenderList(containerId, key){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  container.innerHTML = '';
+  plData[key].forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'pl-row';
+    row.innerHTML = `
+      <div class="pl-label"><input type="text" value="${item.nome}" data-key="${key}" data-idx="${i}" data-field="nome"></div>
+      <input type="number" value="${item.valor}" step="0.01" data-key="${key}" data-idx="${i}" data-field="valor">
+      <button class="pl-del" data-key="${key}" data-idx="${i}" title="remover">✕</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function plRenderDebts(){
+  const container = document.getElementById('pl-dividas-list');
+  if(!container) return;
+  container.innerHTML = '';
+  plData.dividas.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'pl-debt-row';
+    row.innerHTML = `
+      <input type="checkbox" ${item.marcado ? 'checked' : ''} data-idx="${i}" data-field="marcado">
+      <div class="pl-debt-name">
+        <input type="text" value="${item.nome}" data-idx="${i}" data-field="nome" style="border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13.5px;width:100%;">
+        ${plStatusLabel(item.status)}
+      </div>
+      <input type="number" value="${item.valor}" step="0.01" data-idx="${i}" data-field="valor">
+      <button class="pl-del" data-idx="${i}" title="remover">✕</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function plSum(arr){ return arr.reduce((s, x) => s + (parseFloat(x.valor) || 0), 0); }
+
+function plRecalc(){
+  const recebimento = parseFloat(plData.recebimento) || 0;
+  const reserva = parseFloat(plData.reserva) || 0;
+  const disponivel = recebimento - reserva;
+
+  const totalFixos = plSum(plData.fixos);
+  const totalVariaveis = plSum(plData.variaveis);
+  const totalDividas = plSum(plData.dividas.filter(d => d.marcado));
+
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  set('pl-disponivel', plFmt(disponivel));
+  set('pl-total-fixos', plFmt(totalFixos));
+  set('pl-total-variaveis', plFmt(totalVariaveis));
+  set('pl-total-dividas', plFmt(totalDividas));
+  set('pl-s-disponivel', plFmt(disponivel));
+  set('pl-s-fixos', plFmt(totalFixos));
+  set('pl-s-variaveis', plFmt(totalVariaveis));
+  set('pl-s-dividas', plFmt(totalDividas));
+
+  const saldo = disponivel - totalFixos - totalVariaveis - totalDividas;
+  const saldoEl = document.getElementById('pl-saldo-final');
+  if(saldoEl){
+    saldoEl.textContent = plFmt(saldo);
+    saldoEl.className = 'val ' + (saldo >= 0 ? 'positive' : 'negative');
+  }
+}
+
+function plRenderAll(){
+  const recEl = document.getElementById('pl-recebimento');
+  const resEl = document.getElementById('pl-reserva');
+  if(recEl) recEl.value = plData.recebimento;
+  if(resEl) resEl.value = plData.reserva;
+  plRenderList('pl-fixos-list', 'fixos');
+  plRenderList('pl-variaveis-list', 'variaveis');
+  plRenderDebts();
+  plRecalc();
+}
+
+function plAddRow(key){
+  plData[key].push({nome: 'Novo item', valor: 0});
+  plSaveData();
+  plRenderAll();
+}
+
+function plAddDebtRow(){
+  plData.dividas.push({nome: 'Nova dívida', valor: 0, status: 'atrasada', marcado: false});
+  plSaveData();
+  plRenderAll();
+}
+
+document.addEventListener('input', (e) => {
+  const t = e.target;
+  if(t.id === 'pl-recebimento'){ plData.recebimento = parseFloat(t.value) || 0; plSaveData(); plRecalc(); return; }
+  if(t.id === 'pl-reserva'){ plData.reserva = parseFloat(t.value) || 0; plSaveData(); plRecalc(); return; }
+
+  const key = t.getAttribute('data-key');
+  const idx = t.getAttribute('data-idx');
+  const field = t.getAttribute('data-field');
+  if(idx === null || field === null || !t.closest('#page-planejamento-root')) return;
+
+  const targetArr = key ? plData[key] : plData.dividas;
+  if(!targetArr || !targetArr[idx]) return;
+
+  if(field === 'valor') targetArr[idx].valor = parseFloat(t.value) || 0;
+  else if(field === 'nome') targetArr[idx].nome = t.value;
+  else if(field === 'marcado') targetArr[idx].marcado = t.checked;
+
+  plSaveData();
+  plRecalc();
+});
+
+document.addEventListener('click', (e) => {
+  if(!e.target.classList.contains('pl-del')) return;
+  const key = e.target.getAttribute('data-key');
+  const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+  const targetArr = key ? plData[key] : plData.dividas;
+  targetArr.splice(idx, 1);
+  plSaveData();
+  plRenderAll();
+});
+
+function renderPlanejamento(){
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `
+  <div id="page-planejamento-root">
+    <div class="pl-header">
+      <h2>Ciclo Financeiro</h2>
+      <div class="sub">Planejamento do ciclo de pagamento — recebimento, gastos fixos/variáveis e dívidas.</div>
+    </div>
+
+    <div class="pl-section">
+      <h3><span class="tag">01</span>Recebimento</h3>
+      <div class="pl-row"><div class="pl-label">Valor total recebido</div><input type="number" id="pl-recebimento" step="0.01"></div>
+      <div class="pl-row"><div class="pl-label">Reserva pessoal (guardar)</div><input type="number" id="pl-reserva" step="0.01"></div>
+      <div class="pl-subtotal"><span>Disponível para o ciclo</span><span id="pl-disponivel">R$ 0,00</span></div>
+    </div>
+
+    <div class="pl-section">
+      <h3><span class="tag">02</span>Gastos fixos</h3>
+      <div id="pl-fixos-list"></div>
+      <button class="pl-add-row" onclick="plAddRow('fixos')">+ adicionar gasto fixo</button>
+      <div class="pl-subtotal"><span>Total fixos</span><span id="pl-total-fixos">R$ 0,00</span></div>
+    </div>
+
+    <div class="pl-section">
+      <h3><span class="tag">03</span>Gastos variáveis</h3>
+      <div id="pl-variaveis-list"></div>
+      <button class="pl-add-row" onclick="plAddRow('variaveis')">+ adicionar gasto variável</button>
+      <div class="pl-subtotal"><span>Total variáveis</span><span id="pl-total-variaveis">R$ 0,00</span></div>
+    </div>
+
+    <div class="pl-section">
+      <h3><span class="tag">04</span>Dívidas — marque o que vai quitar neste ciclo</h3>
+      <div id="pl-dividas-list"></div>
+      <button class="pl-add-row" onclick="plAddDebtRow()">+ adicionar dívida</button>
+      <div class="pl-subtotal"><span>Total destinado a dívidas</span><span id="pl-total-dividas">R$ 0,00</span></div>
+    </div>
+
+    <div class="pl-section pl-summary">
+      <h3><span class="tag">05</span>Resumo do ciclo</h3>
+      <div class="pl-row"><span>Disponível</span><span id="pl-s-disponivel">R$ 0,00</span></div>
+      <div class="pl-row"><span>− Gastos fixos</span><span id="pl-s-fixos">R$ 0,00</span></div>
+      <div class="pl-row"><span>− Gastos variáveis</span><span id="pl-s-variaveis">R$ 0,00</span></div>
+      <div class="pl-row"><span>− Dívidas marcadas</span><span id="pl-s-dividas">R$ 0,00</span></div>
+      <div class="pl-final-balance"><span class="lbl">Saldo do ciclo</span><span class="val" id="pl-saldo-final">R$ 0,00</span></div>
+      <div class="pl-note">Saldo positivo = sobrou dinheiro no ciclo. Saldo negativo = esse pagamento não cobre tudo o que foi marcado.</div>
+    </div>
+
+    <div class="pl-footer-note">Estes dados ficam salvos neste navegador e sincronizados com sua conta.</div>
+  </div>
+  `;
+  plData = plLoadData();
+  plRenderAll();
+}
+
 // ---- AUTH ----
 let currentUser = null;
 let authMode = 'login';
@@ -654,6 +980,7 @@ auth.onAuthStateChanged(async user=>{
   if(user){
     currentUser = user;
     Object.keys(cache).forEach(k=>delete cache[k]); // limpa cache de sessão anterior
+    await plHydrateFromCloud();
     showApp();
     const now = new Date();
     todayKey = keyOf(now.getFullYear(), now.getMonth()+1);
