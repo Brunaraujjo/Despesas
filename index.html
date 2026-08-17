@@ -165,6 +165,49 @@
   .pl-final-balance .val.negative{color:#F0A08A;}
   .pl-note{font-size:11.5px; color:rgba(243,245,242,.65); margin-top:8px; line-height:1.5;}
   .pl-footer-note{text-align:center; font-size:11.5px; color:var(--muted); margin-top:18px; line-height:1.6;}
+
+  /* INVESTIMENTOS */
+  .inv-summary{background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.05); margin-bottom:18px;}
+  .inv-summary-row{display:flex; justify-content:space-between; align-items:baseline;}
+  .inv-summary .lbl{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .inv-summary .val{font-family:'Fraunces',serif; font-size:26px; font-weight:700; color:var(--primary-dark); margin-top:2px;}
+  .inv-summary .sub{font-size:12px; color:var(--muted); margin-top:2px;}
+  .inv-summary-split{display:flex; gap:10px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);}
+  .inv-summary-split .item{flex:1; text-align:center;}
+  .inv-summary-split .item .n{font-size:15px; font-weight:700;}
+  .inv-summary-split .item .l{font-size:10.5px; color:var(--muted); margin-top:2px;}
+  .inv-row{padding:14px; border-top:1px solid var(--line); position:relative;}
+  .inv-row:first-child{border-top:none;}
+  .inv-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .inv-name{font-size:14.5px; font-weight:600;}
+  .inv-broker{font-size:11.5px; color:var(--muted); margin-top:1px;}
+  .inv-value{font-family:'Fraunces',serif; font-size:16.5px; font-weight:700; color:var(--primary-dark); white-space:nowrap;}
+  .inv-tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;}
+  .tag{font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px;}
+  .tag-rate{background:var(--amber-bg); color:var(--amber);}
+  .tag-term{background:#EAEDE9; color:var(--muted);}
+  .tag-project{background:#E4EEEA; color:var(--primary-dark);}
+  .inv-note{font-size:11.5px; color:var(--muted); margin-top:8px; line-height:1.4;}
+  .inv-del{position:absolute; top:12px; right:12px; background:none; border:none; color:var(--coral); font-size:17px; padding:2px 6px; opacity:.55;}
+  .inv-del:active{opacity:1;}
+  .inv-sim-toggle{display:flex; align-items:center; justify-content:center; gap:5px; margin-top:10px; padding:7px; background:#F5F7F4; border-radius:9px; font-size:11.5px; font-weight:700; color:var(--primary-dark); border:1px dashed var(--line);}
+  .inv-sim{margin-top:8px; padding-top:10px; border-top:1px dashed var(--line);}
+  .inv-sim-row{display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0;}
+  .inv-sim-row .l{color:var(--muted);}
+  .inv-sim-row .v{font-weight:700;}
+  .inv-sim-row .v.gain{color:var(--primary-dark);}
+  .inv-progress{height:5px; border-radius:4px; background:var(--line); margin:8px 0 4px; overflow:hidden;}
+  .inv-progress .fill{height:100%; background:var(--primary);}
+  .inv-progress-lbl{font-size:10px; color:var(--muted); text-align:right;}
+  .inv-aportes-toggle{display:flex; align-items:center; justify-content:space-between; margin-top:9px; padding:7px 9px; background:#F5F7F4; border-radius:9px; font-size:11.5px; font-weight:700; color:var(--muted);}
+  .inv-aportes-toggle .add-aporte{background:var(--primary); color:#fff; border:none; width:22px; height:22px; border-radius:6px; font-size:14px; display:flex; align-items:center; justify-content:center;}
+  .inv-aportes-list{margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);}
+  .aporte-row{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; padding:5px 0; color:var(--ink);}
+  .aporte-row .d{color:var(--muted);}
+  .aporte-del{background:none; border:none; color:var(--coral); font-size:14px; opacity:.5; padding:0 4px;}
+  .aporte-del:active{opacity:1;}
+  .sim-preview{margin-top:2px; padding:11px 12px; background:var(--amber-bg); border-radius:10px; font-size:12.5px; color:var(--ink); line-height:1.5;}
+  .sim-preview b{font-family:'Fraunces',serif; font-size:15px; color:var(--primary-dark);}
 </style>
 <meta name="theme-color" content="#1F4038">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -209,6 +252,7 @@
   <button class="tab" data-tab="receitas"><span class="ic">📥</span>Receitas</button>
   <button class="tab" data-tab="trabalho"><span class="ic">💻</span>Trabalho</button>
   <button class="tab" data-tab="dividas"><span class="ic">📌</span>Dívidas</button>
+  <button class="tab" data-tab="investimentos"><span class="ic">📈</span>Invest.</button>
   <button class="tab" data-tab="planejamento"><span class="ic">🗓️</span>Planejamento</button>
 </div>
 
@@ -296,6 +340,8 @@ async function plHydrateFromCloud(){
 const FIRST_MONTH = "2026-07";
 const JUNE_CLOSING_BALANCE = 6.19;
 const PLATFORMS = ["Outlier","OneForma","Telus","Appen","Premise","Clickworker","uTest","Tryber","Customer In Love","Outro"];
+const INVEST_TIPOS = ["CDB","Tesouro Direto","LCI/LCA","Poupança","FII","Ações/BDR","Fundo de investimento","Outro"];
+const INVEST_PROJETOS_PADRAO = ["Reserva de emergência","Sem projeto vinculado"];
 const WEEKDAYS = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
 const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
@@ -303,6 +349,52 @@ let currentKey = null;
 let todayKey = null;
 let activeTab = "despesas";
 const cache = {};
+let investData = null; // { investments:[...], projetos:[...] } — global, não é por mês
+
+async function invLoadData(){
+  if(investData) return investData;
+  try{
+    const snap = await db.collection('users').doc(currentUser.uid).collection('data').doc('investimentos').get();
+    const data = snap.exists ? snap.data() : {};
+    data.investments = data.investments || [];
+    data.projetos = data.projetos && data.projetos.length ? data.projetos : INVEST_PROJETOS_PADRAO.slice();
+    investData = data;
+    return investData;
+  }catch(e){
+    investData = {investments:[], projetos: INVEST_PROJETOS_PADRAO.slice()};
+    showToast('Sem conexão — mostrando dados locais');
+    return investData;
+  }
+}
+
+async function invSaveData(){
+  try{
+    await db.collection('users').doc(currentUser.uid).collection('data').doc('investimentos').set(investData);
+  }catch(e){
+    showToast('Não foi possível salvar na nuvem agora.');
+  }
+}
+
+function invAportesTotal(inv){
+  return (inv.aportes||[]).reduce((s,a)=>s+(Number(a.valor)||0),0);
+}
+
+function invSimulate(inv){
+  const total = invAportesTotal(inv);
+  if(!inv.taxaAnual || !inv.vencimento || total<=0) return null;
+  const first = (inv.aportes||[]).reduce((min,a)=> !min || a.data<min ? a.data : min, null);
+  const start = first ? new Date(first+'T00:00:00') : new Date();
+  const now = new Date();
+  const venc = new Date(inv.vencimento+'T00:00:00');
+  const totalDays = Math.max(1,(venc-start)/86400000);
+  const elapsedDays = Math.min(totalDays, Math.max(0,(now-start)/86400000));
+  const progressPct = Math.round((elapsedDays/totalDays)*100);
+  const anos = Math.max(0,(venc-now)/(86400000*365));
+  const projetado = total * Math.pow(1+(Number(inv.taxaAnual)/100), anos);
+  const ganho = projetado - total;
+  const meses = Math.max(0, Math.round((venc-now)/(86400000*30)));
+  return {total, projetado, ganho, progressPct: Math.min(100,progressPct), meses};
+}
 
 function pad(n){return String(n).padStart(2,'0');}
 function keyOf(y,m){return `${y}-${pad(m)}`;} // m is 1-12
@@ -402,6 +494,13 @@ async function render(){
     if(monthNavEl) monthNavEl.style.display = 'none';
     if(fabEl) fabEl.style.display = 'none';
     renderPlanejamento();
+    return;
+  }
+  if(activeTab === 'investimentos'){
+    if(ledgerEl) ledgerEl.style.display = 'none';
+    if(monthNavEl) monthNavEl.style.display = 'none';
+    if(fabEl) fabEl.style.display = '';
+    await renderInvestimentos();
     return;
   }
   if(ledgerEl) ledgerEl.style.display = '';
@@ -588,6 +687,7 @@ function attachDeleteHandlers(data){
 
 // ---- ADD SHEET ----
 function openAddSheet(){
+  if(activeTab==='investimentos'){ openAddInvestmentSheet(); return; }
   const data = cache[currentKey];
   const overlay = document.createElement('div');
   overlay.className='sheet-overlay';
@@ -929,6 +1029,229 @@ function renderPlanejamento(){
   plRenderAll();
 }
 
+// ---- INVESTIMENTOS ----
+function renderInvestimentos(){
+  return invLoadData().then(data=>{
+    const main = document.getElementById('mainContent');
+    const totalInvestido = data.investments.reduce((s,inv)=>s+invAportesTotal(inv),0);
+    let projetado = 0, temSimulacao = false;
+    data.investments.forEach(inv=>{
+      const sim = invSimulate(inv);
+      if(sim){ projetado += sim.projetado; temSimulacao = true; } else { projetado += invAportesTotal(inv); }
+    });
+    const ganhoTotal = projetado - totalInvestido;
+    const instituicoes = new Set(data.investments.map(i=>i.instituicao).filter(Boolean));
+    const projetosVinculados = new Set(data.investments.map(i=>i.projeto).filter(p=>p && p!=='Sem projeto vinculado'));
+
+    let html = `<div class="inv-summary">
+      <div class="inv-summary-row"><div>
+        <div class="lbl">Total investido</div>
+        <div class="val num">${fmt(totalInvestido)}</div>
+      </div></div>
+      <div class="inv-summary-split">
+        <div class="item"><div class="n num">${data.investments.length}</div><div class="l">investimentos</div></div>
+        <div class="item"><div class="n num">${projetosVinculados.size}</div><div class="l">projetos vinculados</div></div>
+        <div class="item"><div class="n num">${instituicoes.size}</div><div class="l">instituições</div></div>
+      </div>`;
+    if(temSimulacao){
+      html += `<div class="inv-summary-row" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);"><div>
+        <div class="lbl">Patrimônio projetado (nos vencimentos)</div>
+        <div class="val num" style="color:var(--amber); font-size:20px;">${fmt(projetado)}</div>
+        <div class="sub">${ganhoTotal>=0?'+ ':''}${fmt(ganhoTotal)} de rendimento estimado</div>
+      </div></div>`;
+    }
+    html += `</div>`;
+
+    if(data.investments.length===0){
+      html += `<div class="section-title"><h2>Seus investimentos</h2></div>
+      <div class="card"><div class="empty"><b>Nenhum investimento cadastrado</b>Toque em + para registrar seu primeiro aporte.</div></div>`;
+    } else {
+      html += `<div class="section-title"><h2>Seus investimentos</h2><span class="total num">${fmt(totalInvestido)}</span></div><div class="card">`;
+      data.investments.forEach(inv=>{
+        const total = invAportesTotal(inv);
+        const sim = invSimulate(inv);
+        html += `<div class="inv-row" data-inv-id="${inv.id}">
+          <button class="inv-del" data-del-inv="${inv.id}">×</button>
+          <div class="inv-top">
+            <div>
+              <div class="inv-name">${escapeHtml(inv.produto||'Sem nome')}</div>
+              <div class="inv-broker">${escapeHtml(inv.instituicao||'')}</div>
+            </div>
+            <div class="inv-value num">${fmt(total)}</div>
+          </div>
+          <div class="inv-tags">
+            ${inv.taxaLabel ? `<span class="tag tag-rate">${escapeHtml(inv.taxaLabel)}</span>` : ''}
+            ${inv.vencimento ? `<span class="tag tag-term">Vence ${fmtDateBR(inv.vencimento)}</span>` : ''}
+            ${inv.projeto && inv.projeto!=='Sem projeto vinculado' ? `<span class="tag tag-project">🎯 ${escapeHtml(inv.projeto)}</span>` : ''}
+          </div>
+          ${inv.obs ? `<div class="inv-note">${escapeHtml(inv.obs)}</div>` : ''}
+          ${sim ? `
+          <div class="inv-sim-toggle" data-toggle-sim="${inv.id}">📊 Ver simulação de rendimento</div>
+          <div class="inv-sim" id="sim-${inv.id}" style="display:none;">
+            <div class="inv-sim-row"><span class="l">Valor estimado no vencimento</span><span class="v num">${fmt(sim.projetado)}</span></div>
+            <div class="inv-sim-row"><span class="l">Rendimento estimado</span><span class="v gain num">${sim.ganho>=0?'+ ':''}${fmt(sim.ganho)}</span></div>
+            <div class="inv-progress"><div class="fill" style="width:${sim.progressPct}%"></div></div>
+            <div class="inv-progress-lbl">${sim.progressPct}% do prazo decorrido${sim.meses>0?` · faltam ~${sim.meses} meses`:''}</div>
+          </div>` : ''}
+          <div class="inv-aportes-toggle" data-toggle-aportes="${inv.id}">
+            <span>📜 ${(inv.aportes||[]).length} aporte(s) · total ${fmtShort(total)}</span>
+            <button class="add-aporte" data-add-aporte="${inv.id}">+</button>
+          </div>
+          <div class="inv-aportes-list" id="aportes-${inv.id}" style="display:none;">
+            ${(inv.aportes||[]).slice().sort((a,b)=>b.data.localeCompare(a.data)).map(a=>`
+              <div class="aporte-row"><span class="d">${fmtDateBR(a.data)}</span><span>${fmtShort(a.valor)}</span><button class="aporte-del" data-del-aporte="${inv.id}|${a.id}">×</button></div>
+            `).join('')}
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    main.innerHTML = html;
+    attachInvestHandlers(data);
+  });
+}
+
+function fmtDateBR(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function attachInvestHandlers(data){
+  document.querySelectorAll('[data-toggle-sim]').forEach(el=>{
+    el.onclick = ()=>{
+      const box = document.getElementById('sim-'+el.dataset.toggleSim);
+      box.style.display = box.style.display==='none' ? 'block' : 'none';
+    };
+  });
+  document.querySelectorAll('[data-toggle-aportes]').forEach(el=>{
+    el.onclick = (e)=>{
+      if(e.target.closest('[data-add-aporte]')) return;
+      const box = document.getElementById('aportes-'+el.dataset.toggleAportes);
+      box.style.display = box.style.display==='none' ? 'block' : 'none';
+    };
+  });
+  document.querySelectorAll('[data-add-aporte]').forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); openAddAporteSheet(el.dataset.addAporte, data); };
+  });
+  document.querySelectorAll('[data-del-inv]').forEach(el=>{
+    el.onclick = async ()=>{
+      data.investments = data.investments.filter(i=>i.id!==el.dataset.delInv);
+      await invSaveData();
+      renderInvestimentos();
+    };
+  });
+  document.querySelectorAll('[data-del-aporte]').forEach(el=>{
+    el.onclick = async ()=>{
+      const [invId, aporteId] = el.dataset.delAporte.split('|');
+      const inv = data.investments.find(i=>i.id===invId);
+      if(inv){ inv.aportes = (inv.aportes||[]).filter(a=>a.id!==aporteId); }
+      await invSaveData();
+      renderInvestimentos();
+    };
+  });
+}
+
+function openAddInvestmentSheet(){
+  invLoadData().then(data=>{
+    const overlay = document.createElement('div');
+    overlay.className='sheet-overlay';
+    const projetoOptions = data.projetos.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+    overlay.innerHTML = `<div class="sheet">
+      <h3>Novo investimento</h3>
+      <div class="field"><label>Instituição (corretora/banco)</label><input type="text" id="iInstituicao" placeholder="Ex: Nubank, XP, Banco Inter..."></div>
+      <div class="field"><label>Nome do produto</label><input type="text" id="iProduto" placeholder="Ex: CDB Liquidez Diária"></div>
+      <div class="row2">
+        <div class="field"><label>Valor do primeiro aporte (R$)</label><input type="number" step="0.01" id="iValor" placeholder="0,00"></div>
+        <div class="field"><label>Data do aporte</label><input type="date" id="iData" value="${new Date().toISOString().slice(0,10)}"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Taxa (rótulo)</label><input type="text" id="iTaxaLabel" placeholder="Ex: 110% do CDI, 12% a.a."></div>
+        <div class="field"><label>Taxa anual p/ simulação (%)</label><input type="number" step="0.01" id="iTaxaAnual" placeholder="Ex: 12.5"></div>
+      </div>
+      <div class="field"><label>Vencimento (opcional, p/ simular rendimento)</label><input type="date" id="iVencimento"></div>
+      <div class="field"><label>Tipo</label><select id="iTipo">${INVEST_TIPOS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Vincular a um projeto/meta</label>
+        <select id="iProjeto">${projetoOptions}<option value="__novo__">+ Criar novo projeto...</option></select>
+      </div>
+      <div id="iNovoProjetoWrap" class="field" style="display:none;"><label>Nome do novo projeto</label><input type="text" id="iNovoProjeto"></div>
+      <div class="field"><label>Observações (opcional)</label><input type="text" id="iObs" placeholder="Ex: isento de IR, resgate automático..."></div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" id="iCancel">Cancelar</button>
+        <button class="btn btn-primary" id="iSave">Salvar investimento</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click',e=>{if(e.target===overlay) overlay.remove();});
+    document.getElementById('iCancel').onclick=()=>overlay.remove();
+    const projSel = document.getElementById('iProjeto');
+    projSel.onchange = ()=>{ document.getElementById('iNovoProjetoWrap').style.display = projSel.value==='__novo__' ? 'block' : 'none'; };
+
+    document.getElementById('iSave').onclick = async ()=>{
+      const produto = document.getElementById('iProduto').value.trim();
+      const valor = Number(document.getElementById('iValor').value);
+      if(!produto){ showToast('Informe o nome do produto'); return; }
+      if(!valor || valor<=0){ showToast('Informe um valor válido'); return; }
+      let projeto = projSel.value;
+      if(projeto==='__novo__'){
+        const novo = document.getElementById('iNovoProjeto').value.trim();
+        if(!novo){ showToast('Informe o nome do projeto'); return; }
+        if(!data.projetos.includes(novo)) data.projetos.push(novo);
+        projeto = novo;
+      }
+      data.investments.push({
+        id: uid(),
+        instituicao: document.getElementById('iInstituicao').value.trim(),
+        produto,
+        tipo: document.getElementById('iTipo').value,
+        taxaLabel: document.getElementById('iTaxaLabel').value.trim(),
+        taxaAnual: Number(document.getElementById('iTaxaAnual').value) || null,
+        vencimento: document.getElementById('iVencimento').value || null,
+        projeto,
+        obs: document.getElementById('iObs').value.trim(),
+        aportes: [{id:uid(), data: document.getElementById('iData').value || new Date().toISOString().slice(0,10), valor}]
+      });
+      await invSaveData();
+      overlay.remove();
+      showToast('Investimento adicionado!');
+      renderInvestimentos();
+    };
+  });
+}
+
+function openAddAporteSheet(invId, data){
+  const inv = data.investments.find(i=>i.id===invId);
+  if(!inv) return;
+  const overlay = document.createElement('div');
+  overlay.className='sheet-overlay';
+  overlay.innerHTML = `<div class="sheet">
+    <h3>Novo aporte</h3>
+    <div class="sheet-sub" style="font-size:12px;color:var(--muted);margin-bottom:14px;">${escapeHtml(inv.produto)} · ${escapeHtml(inv.instituicao||'')}</div>
+    <div class="row2">
+      <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" id="aValor" placeholder="0,00"></div>
+      <div class="field"><label>Data</label><input type="date" id="aData" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="aCancel">Cancelar</button>
+      <button class="btn btn-primary" id="aSave">Adicionar aporte</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay) overlay.remove();});
+  document.getElementById('aCancel').onclick=()=>overlay.remove();
+  document.getElementById('aSave').onclick = async ()=>{
+    const valor = Number(document.getElementById('aValor').value);
+    if(!valor || valor<=0){ showToast('Informe um valor válido'); return; }
+    inv.aportes = inv.aportes || [];
+    inv.aportes.push({id:uid(), data: document.getElementById('aData').value || new Date().toISOString().slice(0,10), valor});
+    await invSaveData();
+    overlay.remove();
+    showToast('Aporte adicionado!');
+    renderInvestimentos();
+  };
+}
+
 // ---- AUTH ----
 let currentUser = null;
 let authMode = 'login';
@@ -980,6 +1303,7 @@ auth.onAuthStateChanged(async user=>{
   if(user){
     currentUser = user;
     Object.keys(cache).forEach(k=>delete cache[k]); // limpa cache de sessão anterior
+    investData = null; // limpa cache de investimentos da sessão anterior
     await plHydrateFromCloud();
     showApp();
     const now = new Date();
