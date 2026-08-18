@@ -208,6 +208,24 @@
   .aporte-del:active{opacity:1;}
   .sim-preview{margin-top:2px; padding:11px 12px; background:var(--amber-bg); border-radius:10px; font-size:12.5px; color:var(--ink); line-height:1.5;}
   .sim-preview b{font-family:'Fraunces',serif; font-size:15px; color:var(--primary-dark);}
+
+  /* CICLOS DE PLANEJAMENTO */
+  .cycle-nav{display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--card); border-radius:var(--radius); padding:10px 12px; box-shadow:0 1px 3px rgba(0,0,0,.05); margin-bottom:14px;}
+  .cycle-nav button.arrow{background:#F0F1EE; border:none; color:var(--muted); width:32px; height:32px; border-radius:8px; font-size:16px; display:flex; align-items:center; justify-content:center;}
+  .cycle-nav button.arrow:disabled{opacity:.35;}
+  .cycle-mid{flex:1; text-align:center;}
+  .cycle-name{font-family:'Fraunces',serif; font-weight:600; font-size:15px; text-transform:capitalize;}
+  .cycle-status{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:20px; display:inline-block; margin-top:3px;}
+  .cycle-status.atual{background:var(--amber-bg); color:var(--amber);}
+  .cycle-status.arquivado{background:#EAEDE9; color:var(--muted);}
+  .cycle-actions{display:flex; gap:8px; margin-bottom:16px;}
+  .cycle-btn{flex:1; padding:11px; border-radius:11px; border:1.5px dashed var(--line); background:none; color:var(--primary-dark); font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px;}
+  .cycle-list-item{display:flex; align-items:center; justify-content:space-between; padding:11px 14px; border-top:1px solid var(--line); font-size:13.5px;}
+  .cycle-list-item:first-child{border-top:none;}
+  .cycle-list-item .name{font-weight:600; text-transform:capitalize;}
+  .cycle-list-item .meta{font-size:11px; color:var(--muted); margin-top:2px;}
+  .cycle-list-item .saldo{font-weight:700; white-space:nowrap;}
+  .cycle-archived-note{background:var(--amber-bg); color:var(--amber); font-size:12px; padding:9px 12px; border-radius:10px; margin-bottom:14px; text-align:center; font-weight:600;}
 </style>
 <meta name="theme-color" content="#1F4038">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -282,7 +300,7 @@ db.enablePersistence().catch(()=>{ /* várias abas abertas: ok, segue sem cache 
 
 // ---- Sincronização em nuvem dos dados de Planejamento (mesma lógica do app Financeiro) ----
 const PL_APP_ID = "cicloFinanceiro";
-const PL_KEY_PREFIXES = ["painel-bruna-financeiro-ago2026"];
+const PL_KEY_PREFIXES = ["painel-bruna-financeiro"];
 function plKeyMatches(k){ return PL_KEY_PREFIXES.some(p => k === p || k.indexOf(p) === 0); }
 function plCollectLocalSnapshot(){
   const snap = {};
@@ -791,8 +809,10 @@ document.querySelectorAll('.tab').forEach(t=>{
   };
 });
 
-// ---- PLANEJAMENTO (ciclo financeiro) ----
-const PL_STORAGE_KEY = 'painel-bruna-financeiro-ago2026';
+// ---- PLANEJAMENTO (ciclo financeiro, com suporte a múltiplos ciclos) ----
+const PL_STORAGE_KEY = 'painel-bruna-financeiro-ago2026'; // chave antiga (formato único) — usada só para migração
+const PL_INDEX_KEY = 'painel-bruna-financeiro-ciclos-index';
+const PL_CYCLE_PREFIX = 'painel-bruna-financeiro-ciclo-';
 
 function plFmt(v){
   return 'R$ ' + (v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -800,55 +820,78 @@ function plFmt(v){
 
 function plDefaultData() {
   return {
-    recebimento: 4400,
-    reserva: 400,
-    fixos: [
-      {nome: 'Internet móvel', valor: 53},
-      {nome: 'Luz', valor: 200},
-      {nome: 'Convênio Luke', valor: 50},
-      {nome: 'Seguro carro', valor: 300},
-      {nome: 'Água', valor: 170},
-      {nome: 'Cartão Jennifer (parcela ago)', valor: 949.05},
-      {nome: 'Empréstimo Leto (parcela 15/08)', valor: 850}
-    ],
-    variaveis: [
-      {nome: 'Mercado (ajustado, resto no VA)', valor: 300},
-      {nome: 'Feira', valor: 140},
-      {nome: 'Lazer (cortado em agosto)', valor: 0},
-      {nome: 'Gasolina', valor: 300},
-      {nome: 'Padaria', valor: 100},
-      {nome: 'Farmácia', valor: 100},
-      {nome: 'Dinheiro de bolso', valor: 200}
-    ],
-    dividas: [
-      {nome: 'Safra (Cheque Especial)', valor: 69.40, status: 'atrasada', marcado: true},
-      {nome: 'UNIMED', valor: 386.10, status: 'negativada', marcado: false},
-      {nome: 'MercadoPago', valor: 106.82, status: 'atrasada', marcado: false},
-      {nome: 'Paga Leve (1)', valor: 144.75, status: 'atrasada', marcado: false},
-      {nome: 'Paga Leve (2)', valor: 64.84, status: 'atrasada', marcado: false},
-      {nome: 'Crédito Fácil', valor: 390.00, status: 'atrasada', marcado: false},
-      {nome: 'Safra (Pessoa Física)', valor: 542.57, status: 'atrasada', marcado: false},
-      {nome: 'PagSeguro', valor: 636.70, status: 'atrasada', marcado: false},
-      {nome: 'Sabesp', valor: 5418.09, status: 'atrasada', marcado: false},
-      {nome: 'Enel (sem valor definido — negociar)', valor: 0, status: 'negociar', marcado: false}
-    ]
+    recebimento: 0,
+    reserva: 0,
+    fixos: [],
+    variaveis: [],
+    dividas: [],
+    archived: false,
+    archivedAt: null
   };
 }
 
-let plData = null;
+// ---- armazenamento por ciclo (mês) ----
+function plCycleStorageKey(monthKey){ return PL_CYCLE_PREFIX + monthKey; }
 
-function plLoadData(){
+function plGetIndex(){
   try{
-    const raw = localStorage.getItem(PL_STORAGE_KEY);
+    const raw = localStorage.getItem(PL_INDEX_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function plSaveIndex(arr){
+  try{ localStorage.setItem(PL_INDEX_KEY, JSON.stringify(arr)); }
+  catch(e){ console.warn('Não foi possível salvar o índice de ciclos:', e); }
+}
+
+function plLoadCycle(monthKey){
+  try{
+    const raw = localStorage.getItem(plCycleStorageKey(monthKey));
     if(raw) return JSON.parse(raw);
   }catch(e){ console.warn('Armazenamento local indisponível:', e); }
-  return plDefaultData();
+  return null;
 }
-
-function plSaveData(){
-  try{ localStorage.setItem(PL_STORAGE_KEY, JSON.stringify(plData)); }
+function plSaveCycleData(monthKey, data){
+  try{ localStorage.setItem(plCycleStorageKey(monthKey), JSON.stringify(data)); }
   catch(e){ console.warn('Não foi possível salvar o planejamento:', e); }
 }
+
+// cria o(s) ciclo(s) inicial(is), migrando o formato antigo (chave única) se existir
+function plEnsureInitialized(){
+  let index = plGetIndex();
+  if(index.length === 0){
+    let migrated = null;
+    try{
+      const old = localStorage.getItem(PL_STORAGE_KEY);
+      if(old) migrated = JSON.parse(old);
+    }catch(e){}
+    const monthKey = migrated ? '2026-08' : todayKey; // o ciclo antigo corresponde a agosto/2026
+    const data = migrated || plDefaultData();
+    if(data.archived === undefined) data.archived = false;
+    if(data.archivedAt === undefined) data.archivedAt = null;
+    plSaveCycleData(monthKey, data);
+    index = [monthKey];
+    plSaveIndex(index);
+  }
+  return index;
+}
+
+function plCycleLabel(monthKey){
+  const {m} = parseKey(monthKey);
+  const last = daysInMonth(monthKey);
+  return `${MONTHS_PT[m-1]} (01 a ${pad(last)}/${pad(m)})`;
+}
+
+function plComputeSaldo(data){
+  const disponivel = (parseFloat(data.recebimento)||0) - (parseFloat(data.reserva)||0);
+  const totalFixos = plSum(data.fixos||[]);
+  const totalVariaveis = plSum(data.variaveis||[]);
+  const totalDividas = plSum((data.dividas||[]).filter(d=>d.marcado));
+  return disponivel - totalFixos - totalVariaveis - totalDividas;
+}
+
+let plData = null;
+let plViewKey = null; // qual ciclo (mês) está sendo exibido
 
 function plStatusLabel(status){
   if(status === 'negativada') return '<span class="pl-debt-status pl-status-negativada">negativada</span>';
@@ -859,14 +902,15 @@ function plStatusLabel(status){
 function plRenderList(containerId, key){
   const container = document.getElementById(containerId);
   if(!container) return;
+  const ro = !!plData.archived;
   container.innerHTML = '';
   plData[key].forEach((item, i) => {
     const row = document.createElement('div');
     row.className = 'pl-row';
     row.innerHTML = `
-      <div class="pl-label"><input type="text" value="${item.nome}" data-key="${key}" data-idx="${i}" data-field="nome"></div>
-      <input type="number" value="${item.valor}" step="0.01" data-key="${key}" data-idx="${i}" data-field="valor">
-      <button class="pl-del" data-key="${key}" data-idx="${i}" title="remover">✕</button>
+      <div class="pl-label"><input type="text" value="${item.nome}" data-key="${key}" data-idx="${i}" data-field="nome" ${ro?'disabled':''}></div>
+      <input type="number" value="${item.valor}" step="0.01" data-key="${key}" data-idx="${i}" data-field="valor" ${ro?'disabled':''}>
+      ${ro?'':`<button class="pl-del" data-key="${key}" data-idx="${i}" title="remover">✕</button>`}
     `;
     container.appendChild(row);
   });
@@ -875,18 +919,19 @@ function plRenderList(containerId, key){
 function plRenderDebts(){
   const container = document.getElementById('pl-dividas-list');
   if(!container) return;
+  const ro = !!plData.archived;
   container.innerHTML = '';
   plData.dividas.forEach((item, i) => {
     const row = document.createElement('div');
     row.className = 'pl-debt-row';
     row.innerHTML = `
-      <input type="checkbox" ${item.marcado ? 'checked' : ''} data-idx="${i}" data-field="marcado">
+      <input type="checkbox" ${item.marcado ? 'checked' : ''} data-idx="${i}" data-field="marcado" ${ro?'disabled':''}>
       <div class="pl-debt-name">
-        <input type="text" value="${item.nome}" data-idx="${i}" data-field="nome" style="border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13.5px;width:100%;">
+        <input type="text" value="${item.nome}" data-idx="${i}" data-field="nome" style="border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13.5px;width:100%;" ${ro?'disabled':''}>
         ${plStatusLabel(item.status)}
       </div>
-      <input type="number" value="${item.valor}" step="0.01" data-idx="${i}" data-field="valor">
-      <button class="pl-del" data-idx="${i}" title="remover">✕</button>
+      <input type="number" value="${item.valor}" step="0.01" data-idx="${i}" data-field="valor" ${ro?'disabled':''}>
+      ${ro?'':`<button class="pl-del" data-idx="${i}" title="remover">✕</button>`}
     `;
     container.appendChild(row);
   });
@@ -933,26 +978,29 @@ function plRenderAll(){
 }
 
 function plAddRow(key){
+  if(plData.archived) return;
   plData[key].push({nome: 'Novo item', valor: 0});
-  plSaveData();
+  plSaveCycleData(plViewKey, plData);
   plRenderAll();
 }
 
 function plAddDebtRow(){
+  if(plData.archived) return;
   plData.dividas.push({nome: 'Nova dívida', valor: 0, status: 'atrasada', marcado: false});
-  plSaveData();
+  plSaveCycleData(plViewKey, plData);
   plRenderAll();
 }
 
 document.addEventListener('input', (e) => {
   const t = e.target;
-  if(t.id === 'pl-recebimento'){ plData.recebimento = parseFloat(t.value) || 0; plSaveData(); plRecalc(); return; }
-  if(t.id === 'pl-reserva'){ plData.reserva = parseFloat(t.value) || 0; plSaveData(); plRecalc(); return; }
+  if(!t.closest('#page-planejamento-root') || !plData || plData.archived) return;
+  if(t.id === 'pl-recebimento'){ plData.recebimento = parseFloat(t.value) || 0; plSaveCycleData(plViewKey, plData); plRecalc(); return; }
+  if(t.id === 'pl-reserva'){ plData.reserva = parseFloat(t.value) || 0; plSaveCycleData(plViewKey, plData); plRecalc(); return; }
 
   const key = t.getAttribute('data-key');
   const idx = t.getAttribute('data-idx');
   const field = t.getAttribute('data-field');
-  if(idx === null || field === null || !t.closest('#page-planejamento-root')) return;
+  if(idx === null || field === null) return;
 
   const targetArr = key ? plData[key] : plData.dividas;
   if(!targetArr || !targetArr[idx]) return;
@@ -961,22 +1009,90 @@ document.addEventListener('input', (e) => {
   else if(field === 'nome') targetArr[idx].nome = t.value;
   else if(field === 'marcado') targetArr[idx].marcado = t.checked;
 
-  plSaveData();
+  plSaveCycleData(plViewKey, plData);
   plRecalc();
 });
 
 document.addEventListener('click', (e) => {
   if(!e.target.classList.contains('pl-del')) return;
+  if(!plData || plData.archived) return;
   const key = e.target.getAttribute('data-key');
   const idx = parseInt(e.target.getAttribute('data-idx'), 10);
   const targetArr = key ? plData[key] : plData.dividas;
   targetArr.splice(idx, 1);
-  plSaveData();
+  plSaveCycleData(plViewKey, plData);
   plRenderAll();
 });
 
+// ---- navegação entre ciclos ----
+function plNavigate(dir){
+  const index = plGetIndex();
+  const pos = index.indexOf(plViewKey);
+  const newPos = pos + dir;
+  if(newPos < 0 || newPos >= index.length) return;
+  plViewKey = index[newPos];
+  renderPlanejamento();
+}
+
+function plGoToCycle(monthKey){
+  plViewKey = monthKey;
+  renderPlanejamento();
+}
+
+function plConfirmArchive(){
+  const overlay = document.createElement('div');
+  overlay.className = 'sheet-overlay';
+  overlay.innerHTML = `<div class="sheet">
+    <h3>Arquivar este ciclo?</h3>
+    <div class="sheet-sub" style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;">
+      Depois de arquivado, o ciclo <b>${plCycleLabel(plViewKey)}</b> fica travado — você poderá consultar, mas não editar mais.
+      Os gastos fixos serão copiados automaticamente para o próximo ciclo.
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="plArchCancel">Cancelar</button>
+      <button class="btn btn-primary" id="plArchConfirm">Arquivar e continuar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.getElementById('plArchCancel').onclick = ()=>overlay.remove();
+  document.getElementById('plArchConfirm').onclick = ()=>{ overlay.remove(); plDoArchive(); };
+}
+
+function plDoArchive(){
+  plData.archived = true;
+  plData.archivedAt = new Date().toISOString();
+  plSaveCycleData(plViewKey, plData);
+
+  const newMonthKey = nextKey(plViewKey);
+  let newData = plLoadCycle(newMonthKey);
+  if(!newData){
+    newData = plDefaultData();
+    newData.fixos = (plData.fixos||[]).map(f=>({nome:f.nome, valor:f.valor}));
+    plSaveCycleData(newMonthKey, newData);
+  }
+  const index = plGetIndex();
+  if(!index.includes(newMonthKey)){ index.push(newMonthKey); plSaveIndex(index); }
+  plViewKey = newMonthKey;
+  showToast('Ciclo arquivado! Começando ' + plCycleLabel(newMonthKey) + '.');
+  renderPlanejamento();
+}
+
 function renderPlanejamento(){
   const main = document.getElementById('mainContent');
+  const index = plEnsureInitialized();
+  if(!plViewKey || !index.includes(plViewKey)) plViewKey = index[index.length-1];
+  plData = plLoadCycle(plViewKey) || plDefaultData();
+
+  const pos = index.indexOf(plViewKey);
+  const isArchived = !!plData.archived;
+
+  const archivedCycles = index
+    .filter(k => k !== plViewKey)
+    .map(k => ({key:k, data: plLoadCycle(k) || plDefaultData()}))
+    .filter(c => c.data.archived)
+    .sort((a,b)=> b.key.localeCompare(a.key));
+
   main.innerHTML = `
   <div id="page-planejamento-root">
     <div class="pl-header">
@@ -984,31 +1100,45 @@ function renderPlanejamento(){
       <div class="sub">Planejamento do ciclo de pagamento — recebimento, gastos fixos/variáveis e dívidas.</div>
     </div>
 
+    <div class="cycle-nav">
+      <button class="arrow" id="plPrev" ${pos<=0?'disabled':''}>‹</button>
+      <div class="cycle-mid">
+        <div class="cycle-name">${plCycleLabel(plViewKey)}</div>
+        <div class="cycle-status ${isArchived?'arquivado':'atual'}">${isArchived?'🔒 Arquivado':'● Ciclo atual (em edição)'}</div>
+      </div>
+      <button class="arrow" id="plNext" ${pos>=index.length-1?'disabled':''}>›</button>
+    </div>
+
+    ${isArchived ? `<div class="cycle-archived-note">Este ciclo está arquivado e não pode mais ser editado.</div>` : `
+    <div class="cycle-actions">
+      <button class="cycle-btn" id="plArchiveBtn">📦 Arquivar e começar próximo ciclo</button>
+    </div>`}
+
     <div class="pl-section">
       <h3><span class="tag">01</span>Recebimento</h3>
-      <div class="pl-row"><div class="pl-label">Valor total recebido</div><input type="number" id="pl-recebimento" step="0.01"></div>
-      <div class="pl-row"><div class="pl-label">Reserva pessoal (guardar)</div><input type="number" id="pl-reserva" step="0.01"></div>
+      <div class="pl-row"><div class="pl-label">Valor total recebido</div><input type="number" id="pl-recebimento" step="0.01" ${isArchived?'disabled':''}></div>
+      <div class="pl-row"><div class="pl-label">Reserva pessoal (guardar)</div><input type="number" id="pl-reserva" step="0.01" ${isArchived?'disabled':''}></div>
       <div class="pl-subtotal"><span>Disponível para o ciclo</span><span id="pl-disponivel">R$ 0,00</span></div>
     </div>
 
     <div class="pl-section">
       <h3><span class="tag">02</span>Gastos fixos</h3>
       <div id="pl-fixos-list"></div>
-      <button class="pl-add-row" onclick="plAddRow('fixos')">+ adicionar gasto fixo</button>
+      ${isArchived?'':`<button class="pl-add-row" onclick="plAddRow('fixos')">+ adicionar gasto fixo</button>`}
       <div class="pl-subtotal"><span>Total fixos</span><span id="pl-total-fixos">R$ 0,00</span></div>
     </div>
 
     <div class="pl-section">
       <h3><span class="tag">03</span>Gastos variáveis</h3>
       <div id="pl-variaveis-list"></div>
-      <button class="pl-add-row" onclick="plAddRow('variaveis')">+ adicionar gasto variável</button>
+      ${isArchived?'':`<button class="pl-add-row" onclick="plAddRow('variaveis')">+ adicionar gasto variável</button>`}
       <div class="pl-subtotal"><span>Total variáveis</span><span id="pl-total-variaveis">R$ 0,00</span></div>
     </div>
 
     <div class="pl-section">
       <h3><span class="tag">04</span>Dívidas — marque o que vai quitar neste ciclo</h3>
       <div id="pl-dividas-list"></div>
-      <button class="pl-add-row" onclick="plAddDebtRow()">+ adicionar dívida</button>
+      ${isArchived?'':`<button class="pl-add-row" onclick="plAddDebtRow()">+ adicionar dívida</button>`}
       <div class="pl-subtotal"><span>Total destinado a dívidas</span><span id="pl-total-dividas">R$ 0,00</span></div>
     </div>
 
@@ -1022,12 +1152,35 @@ function renderPlanejamento(){
       <div class="pl-note">Saldo positivo = sobrou dinheiro no ciclo. Saldo negativo = esse pagamento não cobre tudo o que foi marcado.</div>
     </div>
 
+    ${archivedCycles.length ? `
+    <div class="section-title" style="margin-top:22px;"><h2>Ciclos anteriores</h2></div>
+    <div class="card">
+      ${archivedCycles.map(c => `
+        <div class="cycle-list-item" data-goto-cycle="${c.key}" style="cursor:pointer;">
+          <div>
+            <div class="name">${plCycleLabel(c.key)}</div>
+            <div class="meta">Arquivado em ${c.data.archivedAt ? new Date(c.data.archivedAt).toLocaleDateString('pt-BR') : '—'} · 🔒 somente leitura</div>
+          </div>
+          <div class="saldo num" style="color:${plComputeSaldo(c.data)>=0?'var(--primary-dark)':'var(--coral)'};">${plComputeSaldo(c.data)>=0?'+ ':'− '}${plFmt(Math.abs(plComputeSaldo(c.data)))}</div>
+        </div>
+      `).join('')}
+    </div>` : ''}
+
     <div class="pl-footer-note">Estes dados ficam salvos neste navegador e sincronizados com sua conta.</div>
   </div>
   `;
-  plData = plLoadData();
   plRenderAll();
+
+  document.getElementById('plPrev').onclick = ()=>plNavigate(-1);
+  document.getElementById('plNext').onclick = ()=>plNavigate(1);
+  const archBtn = document.getElementById('plArchiveBtn');
+  if(archBtn) archBtn.onclick = plConfirmArchive;
+  document.querySelectorAll('[data-goto-cycle]').forEach(el=>{
+    el.onclick = ()=>plGoToCycle(el.getAttribute('data-goto-cycle'));
+  });
 }
+
+
 
 // ---- INVESTIMENTOS ----
 function renderInvestimentos(){
