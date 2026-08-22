@@ -190,6 +190,8 @@
   .inv-note{font-size:11.5px; color:var(--muted); margin-top:8px; line-height:1.4;}
   .inv-del{position:absolute; top:12px; right:12px; background:none; border:none; color:var(--coral); font-size:17px; padding:2px 6px; opacity:.55;}
   .inv-del:active{opacity:1;}
+  .inv-edit{background:none; border:none; color:var(--muted); font-size:14px; padding:2px 6px; opacity:.55;}
+  .inv-edit:active{opacity:1;}
   .inv-sim-toggle{display:flex; align-items:center; justify-content:center; gap:5px; margin-top:10px; padding:7px; background:#F5F7F4; border-radius:9px; font-size:11.5px; font-weight:700; color:var(--primary-dark); border:1px dashed var(--line);}
   .inv-sim{margin-top:8px; padding-top:10px; border-top:1px dashed var(--line);}
   .inv-sim-row{display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0;}
@@ -394,7 +396,9 @@ async function invSaveData(){
 }
 
 function invAportesTotal(inv){
-  return (inv.aportes||[]).reduce((s,a)=>s+(Number(a.valor)||0),0);
+  const aportes = (inv.aportes||[]).reduce((s,a)=>s+(Number(a.valor)||0),0);
+  const retiradas = (inv.retiradas||[]).reduce((s,r)=>s+(Number(r.valor)||0),0);
+  return aportes - retiradas;
 }
 
 function invSimulate(inv){
@@ -1223,8 +1227,15 @@ function renderInvestimentos(){
       data.investments.forEach(inv=>{
         const total = invAportesTotal(inv);
         const sim = invSimulate(inv);
+        const historico = [
+          ...(inv.aportes||[]).map(a=>({...a, tipo:'aporte'})),
+          ...(inv.retiradas||[]).map(r=>({...r, tipo:'retirada'}))
+        ].sort((a,b)=>b.data.localeCompare(a.data));
         html += `<div class="inv-row" data-inv-id="${inv.id}">
-          <button class="inv-del" data-del-inv="${inv.id}">×</button>
+          <div style="position:absolute; top:12px; right:12px; display:flex; gap:4px;">
+            <button class="inv-edit" data-edit-inv="${inv.id}" title="editar">✎</button>
+            <button class="inv-del" data-del-inv="${inv.id}" title="excluir" style="position:static;">×</button>
+          </div>
           <div class="inv-top">
             <div>
               <div class="inv-name">${escapeHtml(inv.produto||'Sem nome')}</div>
@@ -1247,12 +1258,15 @@ function renderInvestimentos(){
             <div class="inv-progress-lbl">${sim.progressPct}% do prazo decorrido${sim.meses>0?` · faltam ~${sim.meses} meses`:''}</div>
           </div>` : ''}
           <div class="inv-aportes-toggle" data-toggle-aportes="${inv.id}">
-            <span>📜 ${(inv.aportes||[]).length} aporte(s) · total ${fmtShort(total)}</span>
-            <button class="add-aporte" data-add-aporte="${inv.id}">+</button>
+            <span>📜 ${historico.length} movimentação(ões) · total ${fmtShort(total)}</span>
+            <div style="display:flex; gap:6px;">
+              <button class="add-aporte" data-withdraw="${inv.id}" title="retirar valor" style="background:var(--coral);">−</button>
+              <button class="add-aporte" data-add-aporte="${inv.id}" title="adicionar aporte">+</button>
+            </div>
           </div>
           <div class="inv-aportes-list" id="aportes-${inv.id}" style="display:none;">
-            ${(inv.aportes||[]).slice().sort((a,b)=>b.data.localeCompare(a.data)).map(a=>`
-              <div class="aporte-row"><span class="d">${fmtDateBR(a.data)}</span><span>${fmtShort(a.valor)}</span><button class="aporte-del" data-del-aporte="${inv.id}|${a.id}">×</button></div>
+            ${historico.map(h=>`
+              <div class="aporte-row"><span class="d">${fmtDateBR(h.data)}${h.tipo==='retirada'?' · retirada':''}</span><span style="${h.tipo==='retirada'?'color:var(--coral);':''}">${h.tipo==='retirada'?'− ':'+ '}${fmtShort(h.valor)}</span><button class="aporte-del" data-del-mov="${inv.id}|${h.tipo}|${h.id}">×</button></div>
             `).join('')}
           </div>
         </div>`;
@@ -1280,13 +1294,19 @@ function attachInvestHandlers(data){
   });
   document.querySelectorAll('[data-toggle-aportes]').forEach(el=>{
     el.onclick = (e)=>{
-      if(e.target.closest('[data-add-aporte]')) return;
+      if(e.target.closest('[data-add-aporte]') || e.target.closest('[data-withdraw]')) return;
       const box = document.getElementById('aportes-'+el.dataset.toggleAportes);
       box.style.display = box.style.display==='none' ? 'block' : 'none';
     };
   });
   document.querySelectorAll('[data-add-aporte]').forEach(el=>{
     el.onclick = (e)=>{ e.stopPropagation(); openAddAporteSheet(el.dataset.addAporte, data); };
+  });
+  document.querySelectorAll('[data-withdraw]').forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); openWithdrawSheet(el.dataset.withdraw, data); };
+  });
+  document.querySelectorAll('[data-edit-inv]').forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); openAddInvestmentSheet(el.dataset.editInv); };
   });
   document.querySelectorAll('[data-del-inv]').forEach(el=>{
     el.onclick = async ()=>{
@@ -1295,44 +1315,48 @@ function attachInvestHandlers(data){
       renderInvestimentos();
     };
   });
-  document.querySelectorAll('[data-del-aporte]').forEach(el=>{
+  document.querySelectorAll('[data-del-mov]').forEach(el=>{
     el.onclick = async ()=>{
-      const [invId, aporteId] = el.dataset.delAporte.split('|');
+      const [invId, tipo, movId] = el.dataset.delMov.split('|');
       const inv = data.investments.find(i=>i.id===invId);
-      if(inv){ inv.aportes = (inv.aportes||[]).filter(a=>a.id!==aporteId); }
+      if(inv){
+        if(tipo==='retirada') inv.retiradas = (inv.retiradas||[]).filter(r=>r.id!==movId);
+        else inv.aportes = (inv.aportes||[]).filter(a=>a.id!==movId);
+      }
       await invSaveData();
       renderInvestimentos();
     };
   });
 }
 
-function openAddInvestmentSheet(){
+function openAddInvestmentSheet(editId){
   invLoadData().then(data=>{
+    const editing = editId ? data.investments.find(i=>i.id===editId) : null;
     const overlay = document.createElement('div');
     overlay.className='sheet-overlay';
-    const projetoOptions = data.projetos.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+    const projetoOptions = data.projetos.map(p=>`<option value="${escapeHtml(p)}" ${editing&&editing.projeto===p?'selected':''}>${escapeHtml(p)}</option>`).join('');
     overlay.innerHTML = `<div class="sheet">
-      <h3>Novo investimento</h3>
-      <div class="field"><label>Instituição (corretora/banco)</label><input type="text" id="iInstituicao" placeholder="Ex: Nubank, XP, Banco Inter..."></div>
-      <div class="field"><label>Nome do produto</label><input type="text" id="iProduto" placeholder="Ex: CDB Liquidez Diária"></div>
-      <div class="row2">
+      <h3>${editing ? 'Editar investimento' : 'Novo investimento'}</h3>
+      <div class="field"><label>Instituição (corretora/banco)</label><input type="text" id="iInstituicao" placeholder="Ex: Nubank, XP, Banco Inter..." value="${editing?escapeHtml(editing.instituicao||''):''}"></div>
+      <div class="field"><label>Nome do produto</label><input type="text" id="iProduto" placeholder="Ex: CDB Liquidez Diária" value="${editing?escapeHtml(editing.produto||''):''}"></div>
+      ${editing ? '' : `<div class="row2">
         <div class="field"><label>Valor do primeiro aporte (R$)</label><input type="number" step="0.01" id="iValor" placeholder="0,00"></div>
         <div class="field"><label>Data do aporte</label><input type="date" id="iData" value="${new Date().toISOString().slice(0,10)}"></div>
-      </div>
+      </div>`}
       <div class="row2">
-        <div class="field"><label>Taxa (rótulo)</label><input type="text" id="iTaxaLabel" placeholder="Ex: 110% do CDI, 12% a.a."></div>
-        <div class="field"><label>Taxa anual p/ simulação (%)</label><input type="number" step="0.01" id="iTaxaAnual" placeholder="Ex: 12.5"></div>
+        <div class="field"><label>Taxa (rótulo)</label><input type="text" id="iTaxaLabel" placeholder="Ex: 110% do CDI, 12% a.a." value="${editing?escapeHtml(editing.taxaLabel||''):''}"></div>
+        <div class="field"><label>Taxa anual p/ simulação (%)</label><input type="number" step="0.01" id="iTaxaAnual" placeholder="Ex: 12.5" value="${editing&&editing.taxaAnual?editing.taxaAnual:''}"></div>
       </div>
-      <div class="field"><label>Vencimento (opcional, p/ simular rendimento)</label><input type="date" id="iVencimento"></div>
-      <div class="field"><label>Tipo</label><select id="iTipo">${INVEST_TIPOS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Vencimento (opcional, p/ simular rendimento)</label><input type="date" id="iVencimento" value="${editing&&editing.vencimento?editing.vencimento:''}"></div>
+      <div class="field"><label>Tipo</label><select id="iTipo">${INVEST_TIPOS.map(t=>`<option ${editing&&editing.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
       <div class="field"><label>Vincular a um projeto/meta</label>
         <select id="iProjeto">${projetoOptions}<option value="__novo__">+ Criar novo projeto...</option></select>
       </div>
       <div id="iNovoProjetoWrap" class="field" style="display:none;"><label>Nome do novo projeto</label><input type="text" id="iNovoProjeto"></div>
-      <div class="field"><label>Observações (opcional)</label><input type="text" id="iObs" placeholder="Ex: isento de IR, resgate automático..."></div>
+      <div class="field"><label>Observações (opcional)</label><input type="text" id="iObs" placeholder="Ex: isento de IR, resgate automático..." value="${editing?escapeHtml(editing.obs||''):''}"></div>
       <div class="sheet-actions">
         <button class="btn btn-ghost" id="iCancel">Cancelar</button>
-        <button class="btn btn-primary" id="iSave">Salvar investimento</button>
+        <button class="btn btn-primary" id="iSave">${editing ? 'Salvar alterações' : 'Salvar investimento'}</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -1343,9 +1367,12 @@ function openAddInvestmentSheet(){
 
     document.getElementById('iSave').onclick = async ()=>{
       const produto = document.getElementById('iProduto').value.trim();
-      const valor = Number(document.getElementById('iValor').value);
       if(!produto){ showToast('Informe o nome do produto'); return; }
-      if(!valor || valor<=0){ showToast('Informe um valor válido'); return; }
+      let valor;
+      if(!editing){
+        valor = Number(document.getElementById('iValor').value);
+        if(!valor || valor<=0){ showToast('Informe um valor válido'); return; }
+      }
       let projeto = projSel.value;
       if(projeto==='__novo__'){
         const novo = document.getElementById('iNovoProjeto').value.trim();
@@ -1353,8 +1380,7 @@ function openAddInvestmentSheet(){
         if(!data.projetos.includes(novo)) data.projetos.push(novo);
         projeto = novo;
       }
-      data.investments.push({
-        id: uid(),
+      const campos = {
         instituicao: document.getElementById('iInstituicao').value.trim(),
         produto,
         tipo: document.getElementById('iTipo').value,
@@ -1362,12 +1388,21 @@ function openAddInvestmentSheet(){
         taxaAnual: Number(document.getElementById('iTaxaAnual').value) || null,
         vencimento: document.getElementById('iVencimento').value || null,
         projeto,
-        obs: document.getElementById('iObs').value.trim(),
-        aportes: [{id:uid(), data: document.getElementById('iData').value || new Date().toISOString().slice(0,10), valor}]
-      });
+        obs: document.getElementById('iObs').value.trim()
+      };
+      if(editing){
+        Object.assign(editing, campos);
+      } else {
+        data.investments.push({
+          id: uid(),
+          ...campos,
+          aportes: [{id:uid(), data: document.getElementById('iData').value || new Date().toISOString().slice(0,10), valor}],
+          retiradas: []
+        });
+      }
       await invSaveData();
       overlay.remove();
-      showToast('Investimento adicionado!');
+      showToast(editing ? 'Investimento atualizado!' : 'Investimento adicionado!');
       renderInvestimentos();
     };
   });
@@ -1401,6 +1436,41 @@ function openAddAporteSheet(invId, data){
     await invSaveData();
     overlay.remove();
     showToast('Aporte adicionado!');
+    renderInvestimentos();
+  };
+}
+
+function openWithdrawSheet(invId, data){
+  const inv = data.investments.find(i=>i.id===invId);
+  if(!inv) return;
+  const saldoAtual = invAportesTotal(inv);
+  const overlay = document.createElement('div');
+  overlay.className='sheet-overlay';
+  overlay.innerHTML = `<div class="sheet">
+    <h3>Retirar valor</h3>
+    <div class="sheet-sub" style="font-size:12px;color:var(--muted);margin-bottom:14px;">${escapeHtml(inv.produto)} · ${escapeHtml(inv.instituicao||'')} · saldo atual: ${fmt(saldoAtual)}</div>
+    <div class="row2">
+      <div class="field"><label>Valor a retirar (R$)</label><input type="number" step="0.01" id="wValor" placeholder="0,00"></div>
+      <div class="field"><label>Data</label><input type="date" id="wData" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="field"><label>Motivo (opcional)</label><input type="text" id="wMotivo" placeholder="Ex: resgate parcial, emergência..."></div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="wCancel">Cancelar</button>
+      <button class="btn btn-primary" id="wSave" style="background:var(--coral);">Confirmar retirada</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay) overlay.remove();});
+  document.getElementById('wCancel').onclick=()=>overlay.remove();
+  document.getElementById('wSave').onclick = async ()=>{
+    const valor = Number(document.getElementById('wValor').value);
+    if(!valor || valor<=0){ showToast('Informe um valor válido'); return; }
+    if(valor > saldoAtual){ showToast('Valor maior que o saldo disponível nesse investimento'); return; }
+    inv.retiradas = inv.retiradas || [];
+    inv.retiradas.push({id:uid(), data: document.getElementById('wData').value || new Date().toISOString().slice(0,10), valor, motivo: document.getElementById('wMotivo').value.trim()});
+    await invSaveData();
+    overlay.remove();
+    showToast('Retirada registrada!');
     renderInvestimentos();
   };
 }
